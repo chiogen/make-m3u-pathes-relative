@@ -9,10 +9,10 @@ using namespace std;
 const string validFileExtension[] = {".m3u", ".m3u8"};
 
 
-vector<string> readFile(const string &path) {
+vector<string> readFile(const filesystem::path &path) {
 
     if (!filesystem::exists(path))
-        throw runtime_error("File \"" + path + "\" does not exist");
+        throw runtime_error("File \"" + path.string() + "\" does not exist");
 
     ifstream file;
 
@@ -36,7 +36,7 @@ vector<string> readFile(const string &path) {
     }
 }
 
-void writeTextFile(const string &path, const vector<string> &content) {
+void writeTextFile(const filesystem::path &path, const vector<string> &content) {
 
     ofstream file;
     file.open(path);
@@ -61,21 +61,21 @@ string processLine(const string &folder, const string &line) {
     if (line.starts_with("#"))
         return line;
 
-    // Looks like its already a relative path, skip
-    if (line.starts_with("."))
-        return line;
-
     // Whatever this is, its not a file
     if (!filesystem::exists(line) || !filesystem::is_regular_file(line))
+        return line;
+
+    const filesystem::path path(line);
+
+    if (path.is_relative())
         return line;
 
     return getRelativePath(folder, line);
 }
 
-void makePathesInM3URelative(const string &file) {
+void makePathesInM3URelative(const filesystem::path &file) {
 
-    filesystem::path filePath(file);
-    string folder = filePath.parent_path().string();
+    string folder = file.parent_path().string();
 
     vector<string> lines = readFile(file);
     vector<string> newLines;
@@ -88,10 +88,12 @@ void makePathesInM3URelative(const string &file) {
     writeTextFile(file, newLines);
 }
 
-bool isValidFileExtension(const string &file) {
+bool isValidFileExtension(const filesystem::path &file) {
+
+    const string filePath = file.string();
 
     for (auto &ext: validFileExtension) {
-        if (file.ends_with(ext))
+        if (filePath.ends_with(ext))
             return true;
     }
 
@@ -102,13 +104,14 @@ int main(int argc, char *argv[]) {
     try {
 
         if (argc < 2) {
-            cerr << "Please provide the a .m3u or .m3u8 file" << endl;
+            cerr << "Please provide a .m3u or .m3u8 file" << endl;
             return 1;
         }
 
-        const string &file = argv[1];
+        const filesystem::path file = filesystem::absolute(argv[1]);
+
         if (!isValidFileExtension(file)) {
-            cerr << "Please provide the a .m3u or .m3u8 file" << endl;
+            cerr << "Please provide a .m3u or .m3u8 file" << endl;
             return 1;
         }
 
